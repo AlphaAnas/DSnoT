@@ -18,7 +18,8 @@ en/**
 
 pruned-llama-3b-l1
 pruned-llama-3b-l1/** 
-
+pruned-llama-3b-sparsegpt
+pruned-llama-3b-sparsegpt/**
 
 
 # Exclude zip files
