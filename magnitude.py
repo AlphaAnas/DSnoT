@@ -5,7 +5,7 @@ import time
 import torch
 import torch.nn as nn
 import transformers
-
+import torch_pruning as tp
 
 def prune_model(
         model, tokenizer, 
