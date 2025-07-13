@@ -10,3 +10,15 @@ sparse pattern: unstructured
 sample: 128
 sparsity sanity check 0.0000, ppl: 7.813808441162109
 
+model: meta-llama/llama-3.2-3b
+prune_method: DSnoT"
+without_DSnoT: True
+initial_method: DSnoT
+skip_layer no_skip, skip_sub_layer no_skip
+max_cycle_time: 50, update_threshold: 0.1
+pow_of_var_pruning: 1, pow_of_var_regrowing:1
+without_same_sign: True
+sparse pattern: unstructured
+sample: 128
+sparsity sanity check 0.0000, ppl: 7.813808441162109
+

@@ -93,7 +93,8 @@ def main():
             if args.prune_method == "wanda":
                 prune_wanda(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
             elif args.prune_method == "magnitude":
-                prune_magnitude(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
+                prune_model()
+                # prune_magnitude(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
             elif args.prune_method == "sparsegpt":
                 prune_sparsegpt(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
             elif args.prune_method == "DSnoT":

@@ -1,0 +1,32 @@
+
+# Exclude the babylm-10m-weights directory and all its contents
+babylm-10m-weights/
+babylm-10m-weights/**
+
+# Exclude the Dataset directory and all its contents
+Dataset/
+Dataset/**
+
+Dataset_C4/
+Dataset_C4/**
+
+50-percent-pruned-llama-3b-DSnoT
+50-percent-pruned-llama-3b-DSnoT/** 
+
+en
+en/**
+
+pruned-llama-3b-l1
+pruned-llama-3b-l1/** 
+
+
+
+# Exclude zip files
+*.zip
+
+# Exclude folders starting with "llama" followed by - or _
+llama-*/
+llama_*/
+
+
+
