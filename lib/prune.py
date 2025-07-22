@@ -299,33 +299,36 @@ def prune_wanda(
 
 @torch.no_grad()
 def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path=None):
-    ## SparseGPT code available at: https://github.com/IST-DASLab/sparsegpt/tree/f5c25005a61f96a0933ca2f95705a963585aafaa
-    print("Starting ...")
+    print("Starting pruning process...")
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-
+        print("Set pad_token to eos_token.")
 
     num_params_before = sum(p.numel() for p in model.parameters()) / 1e6
-
     print(f"Original model parameters: {num_params_before:.2f}M")
 
-
+    print("Loading dataset...")
     dataloader, _ = get_loaders(
         "c4", nsamples=args.nsamples, seed=args.seed, seqlen=2048, tokenizer=tokenizer
     )
+    print("Dataset loaded.")
 
     use_cache = model.config.use_cache
     model.config.use_cache = False
     layers = model.model.layers
+    print(f"Total layers to prune: {len(layers)}")
 
     if "model.embed_tokens" in model.hf_device_map:
         dev = model.hf_device_map["model.embed_tokens"]
+        print(f"Device set from hf_device_map: {dev}")
 
     dtype = next(iter(model.parameters())).dtype
     inps = torch.zeros(
         (args.nsamples, model.seqlen, model.config.hidden_size), dtype=dtype, device=dev
     )
+    print("Initialized input tensor.")
+
     cache = {"i": 0, "attention_mask": None, "position_ids": None}
 
     class Catcher(nn.Module):
@@ -334,33 +337,39 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
             self.module = module
 
         def forward(self, inp, **kwargs):
+            print(f"Catcher forward pass: sample {cache['i']}")
             inps[cache["i"]] = inp
             cache["i"] += 1
             cache["attention_mask"] = kwargs["attention_mask"]
             cache["position_ids"] = kwargs["position_ids"]
-            raise ValueError
+            raise ValueError  # used for control flow
 
     layers[0] = Catcher(layers[0])
+    print("Catcher injected into first layer.")
+
+    print("Feeding data to model...")
     for batch in dataloader:
         try:
             model(batch[0].to(dev))
         except ValueError:
             pass
+    print("Data fed. Removing Catcher.")
     layers[0] = layers[0].module
     torch.cuda.empty_cache()
 
     outs = torch.zeros_like(inps)
     attention_mask = cache["attention_mask"]
     position_ids = cache["position_ids"]
+    print("Cache collected. Starting pruning.")
 
-    print("Ready.")
     total_time = 0
 
     for i in range(len(layers)):
+        print(f"\n--- Pruning Layer {i} ---")
         layer = layers[i]
         if f"model.layers.{i}" in model.hf_device_map:
             dev = model.hf_device_map[f"model.layers.{i}"]
-            print(f"layer {i} device {dev}")
+            print(f"Layer {i} device: {dev}")
             inps, outs, attention_mask, position_ids = (
                 inps.to(dev),
                 outs.to(dev),
@@ -368,33 +377,40 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
                 position_ids.to(dev),
             )
 
+        print("Finding prunable sublayers...")
         subset = find_layers(layer)
+        print(f"Found {len(subset)} sublayers to prune.")
 
         gpts = {}
         for name in subset:
             gpts[name] = SparseGPT(subset[name])
+            print(f"Initialized SparseGPT for {name}")
 
         def add_batch(name):
             def tmp(_, inp, out):
                 gpts[name].add_batch(inp[0].data, out.data)
-
             return tmp
 
         handles = []
         for name in gpts:
+            print(f"Registering forward hook for {name}")
             handles.append(subset[name].register_forward_hook(add_batch(name)))
 
+        print("Running forward passes for calibration...")
         for j in range(args.nsamples):
+            print(f"Layer {i}, Sample {j}")
             outs[j] = layer(
                 inps[j].unsqueeze(0),
                 attention_mask=attention_mask,
                 position_ids=position_ids,
             )[0]
+
+        print("Removing forward hooks.")
         for h in handles:
             h.remove()
 
         for name in gpts:
-            print(f"pruning layer {i} name {name}")
+            print(f"Pruning sublayer {name} in layer {i}")
             start_time = time.time()
 
             gpts[name].fasterprune(
@@ -406,10 +422,13 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
             )
 
             end_time = time.time()
-            total_time += end_time - start_time
+            prune_time = end_time - start_time
+            total_time += prune_time
+            print(f"Pruned {name} in {prune_time:.2f}s")
 
             gpts[name].free()
 
+        print(f"Validating pruned layer {i} with forward pass...")
         for j in range(args.nsamples):
             outs[j] = layer(
                 inps[j].unsqueeze(0),
@@ -421,12 +440,18 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
         torch.cuda.empty_cache()
 
         inps, outs = outs, inps
+        print(f"Finished Layer {i}")
+
+    print("All layers pruned.")
 
     if args.get_time_overhead:
+        print(f"Saving pruning time overhead: {total_time:.2f}s")
         save_time_result(args, args.output_results_file, total_time)
 
     model.config.use_cache = use_cache
     torch.cuda.empty_cache()
+    print("Pruning complete --- Saving pruned model...")
+
 
 
     # ================ ADDED THIS CODE FOR SAVING THE PRUNED MODEL USING SPARSE GPT=================
