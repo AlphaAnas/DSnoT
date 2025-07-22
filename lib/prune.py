@@ -298,9 +298,15 @@ def prune_wanda(
 
 
 @torch.no_grad()
-def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0):
+def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path=None):
     ## SparseGPT code available at: https://github.com/IST-DASLab/sparsegpt/tree/f5c25005a61f96a0933ca2f95705a963585aafaa
     print("Starting ...")
+
+    num_params_before = sum(p.numel() for p in model.parameters()) / 1e6
+
+    print(f"Original model parameters: {num_params_before:.2f}M")
+
+
     dataloader, _ = get_loaders(
         "c4", nsamples=args.nsamples, seed=args.seed, seqlen=2048, tokenizer=tokenizer
     )
@@ -417,6 +423,29 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0):
 
     model.config.use_cache = use_cache
     torch.cuda.empty_cache()
+
+
+    # ================ ADDED THIS CODE FOR SAVING THE PRUNED MODEL USING SPARSE GPT=================
+     # Clean up memory
+    model.eval()
+        # Calculate final parameters
+    num_params_after = sum(p.numel() for p in model.parameters()) / 1e6
+    compression_ratio = (num_params_before - num_params_after) / num_params_before * 100
+    
+    # print(f"Pruned model parameters: {num_params_after:.2f}M")
+    print("Validating parameter count after full pruning and reconfiguration...")
+    print(f"✅ Final Pruned Model Parameters: {num_params_after:.2f}M")
+
+    print(f"Compression ratio: {compression_ratio:.2f}%")
+
+    # Save the pruned model if save_path is provided
+    saved_path = None
+    if save_path is not None:
+        print(f"Saving pruned model to {save_path}...")
+        model.save_pretrained(save_path)
+        tokenizer.save_pretrained(save_path)
+        saved_path = save_path
+        print(f"Pruned model saved successfully to {save_path}")
 
 
 def prune_DSnoT(
