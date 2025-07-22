@@ -41,8 +41,8 @@ def get_wikitext2(nsamples, seed, seqlen, tokenizer):
 # Load and process c4 dataset
 def get_c4(nsamples, seed, seqlen, tokenizer):
     # Load train and validation datasets
-    traindata = load_dataset('json', data_files='en/c4-train.00000-of-01024.json.gz', split='train')
-    valdata = load_dataset('json', data_files='en/c4-validation.00000-of-00008.json.gz', split='train')
+    traindata = load_dataset('json', data_files='Dataset_C4/c4-train.00000-of-01024.json.gz', split='train')
+    valdata = load_dataset('json', data_files='Dataset_C4/c4-validation.00000-of-00008.json.gz', split='train')
     
     # Generate samples from training set
     random.seed(seed)
@@ -50,7 +50,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
     for _ in range(nsamples):
         while True:
             i = random.randint(0, len(traindata) - 1)
-            trainenc = tokenizer(traindata[i]['text'], return_tensors='pt')
+            trainenc = tokenizer(traindata[i]['text'], return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
             if trainenc.input_ids.shape[1] > seqlen:
                 break
         i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
@@ -61,7 +61,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
         trainloader.append((inp, tar))
 
     # Prepare validation dataset
-    valenc = tokenizer(' '.join(valdata[:1100]['text']), return_tensors='pt')
+    valenc = tokenizer(' '.join(valdata[:1100]['text']), return_tensors='pt', padding="max_length", truncation=True, max_length=seqlen)
     valenc = valenc.input_ids[:, :(256 * seqlen)]
     valenc = TokenizerWrapper(valenc)
     return trainloader, valenc
