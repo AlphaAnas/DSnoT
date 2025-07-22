@@ -302,6 +302,10 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
     ## SparseGPT code available at: https://github.com/IST-DASLab/sparsegpt/tree/f5c25005a61f96a0933ca2f95705a963585aafaa
     print("Starting ...")
 
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+
     num_params_before = sum(p.numel() for p in model.parameters()) / 1e6
 
     print(f"Original model parameters: {num_params_before:.2f}M")
