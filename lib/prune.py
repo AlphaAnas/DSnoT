@@ -308,7 +308,7 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
 
 
     dataloader, _ = get_loaders(
-        "c4", nsamples=args.nsamples, seed=args.seed, seqlen=2048, tokenizer=tokenizer
+        "c4", nsamples=args.nsamples, seed=args.seed, seqlen=2048, tokenizer=tokenizer, truncation="max_length", padding=True
     )
 
     use_cache = model.config.use_cache
