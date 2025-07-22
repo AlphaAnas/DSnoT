@@ -84,7 +84,8 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
     valenc = tokenizer(
                         ' '.join(valdata[:1100]['text']),
                         return_tensors='pt',
-                        truncation=False,
+                        truncation=True,
+                        max_length=256 * seqlen,  # 256 is the number of samples in the validation set
                         padding=False
 )
 
