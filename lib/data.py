@@ -109,7 +109,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
     print("[INFO] All training samples generated successfully.")
     
     print("[INFO] Preparing validation dataset...")
-    valenc = tokenizer(' '.join(valdata[:1100]['text']), return_tensors='pt', truncation=True, max_length=seqlen)
+    valenc = tokenizer(' '.join(valdata[:1100]['text']), return_tensors='pt')
     valenc = valenc.input_ids[:, :(256 * seqlen)]
     valenc = TokenizerWrapper(valenc)
     print(f"[INFO] Validation dataset shape: {valenc.data.shape}")
