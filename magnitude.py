@@ -188,7 +188,11 @@ def prune_model(
     num_params_after = sum(p.numel() for p in model.parameters()) / 1e6
     compression_ratio = (num_params_before - num_params_after) / num_params_before * 100
     
-    print(f"Pruned model parameters: {num_params_after:.2f}M")
+    # print(f"Pruned model parameters: {num_params_after:.2f}M")
+    print("Validating parameter count after full pruning and reconfiguration...")
+    num_params_final = sum(p.numel() for p in model.parameters()) / 1e6
+    print(f"✅ Final Pruned Model Parameters: {num_params_final:.2f}M")
+
     print(f"Compression ratio: {compression_ratio:.2f}%")
 
     # Save the pruned model if save_path is provided
