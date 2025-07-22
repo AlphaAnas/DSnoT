@@ -89,7 +89,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
         while True:
             i = random.randint(0, len(traindata) - 1)
             print(f"[DEBUG] Tokenizing sample from index {i}")
-            trainenc = tokenizer(traindata[i]['text'], return_tensors='pt', truncation=True, max_length=seqlen)
+            trainenc = tokenizer(traindata[i]['text'], return_tensors='pt')
             print(f"[DEBUG] Tokenized input shape: {trainenc.input_ids.shape}")
             if trainenc.input_ids.shape[1] > seqlen:
                 print("[DEBUG] Sequence is long enough, proceeding to slicing.")
