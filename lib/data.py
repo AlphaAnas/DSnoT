@@ -112,7 +112,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
     valenc = tokenizer(' '.join(valdata[:1100]['text']), return_tensors='pt')
     valenc = valenc.input_ids[:, :(256 * seqlen)]
     valenc = TokenizerWrapper(valenc)
-    print(f"[INFO] Validation dataset shape: {valenc.data.shape}")
+    # print(f"[INFO] Validation dataset shape: {valenc.data.shape}")
     
     return trainloader, valenc
 
