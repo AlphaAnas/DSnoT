@@ -12,7 +12,8 @@ def prune_model(
         pruning_type="magnitude",
         weight_metric="l2", model_type="llama", 
         device=torch.device("cuda:0"),
-        max_seq_len=2048, pruning_ratio=0.2, 
+        max_seq_len=2048, pruning_ratio=0.2,
+        save_path=None
             ):
     """
     Prune a language model using Torch Pruning https://github.com/VainF/Torch-Pruning/tree/master.
@@ -30,6 +31,7 @@ def prune_model(
         model_type (str): Type of model architecture ("llama", "gpt2", "bert", etc.")
         max_seq_len (int): Maximum sequence length for the model
         pruning_ratio (float): Ratio of parameters to prune (0.0 to 1.0)
+        save_path (str): Path to save the pruned model (optional)
     
     Returns:
         dict: Dictionary containing model statistics and paths
@@ -189,6 +191,15 @@ def prune_model(
     print(f"Pruned model parameters: {num_params_after:.2f}M")
     print(f"Compression ratio: {compression_ratio:.2f}%")
 
+    # Save the pruned model if save_path is provided
+    saved_path = None
+    if save_path is not None:
+        print(f"Saving pruned model to {save_path}...")
+        model.save_pretrained(save_path)
+        tokenizer.save_pretrained(save_path)
+        saved_path = save_path
+        print(f"Pruned model saved successfully to {save_path}")
+
     
     # Return statistics
     return {
@@ -197,5 +208,6 @@ def prune_model(
         "compression_ratio": compression_ratio,
         "pruning_type": pruning_type,
         "pruning_ratio": pruning_ratio,
-        "model_config": model.config
+        "model_config": model.config,
+        "saved_path": saved_path
     }
