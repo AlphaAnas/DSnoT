@@ -478,10 +478,15 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
 
 
 def prune_DSnoT(
-    args, model, tokenizer, device=torch.device("cuda:0"), prune_n=0, prune_m=0
+    args, model, tokenizer, device=torch.device("cuda:0"), prune_n=0, prune_m=0, save_path=None
 ):
     use_cache = model.config.use_cache
     model.config.use_cache = False
+
+    model.eval()
+    num_params_before = sum(p.numel() for p in model.parameters()) / 1e6
+    print(f"Original model parameters: {num_params_before:.2f}M")
+    model.train()
 
     print("loading calibdation data")
     dataloader, _ = get_loaders(
@@ -929,6 +934,31 @@ def prune_DSnoT(
 
     model.config.use_cache = use_cache
     torch.cuda.empty_cache()
+
+
+    # ================ ADDED THIS CODE FOR SAVING THE PRUNED MODEL USING DSNOT GPT=================
+    model.eval()
+      # Clean up memory
+
+        # Calculate final parameters
+    num_params_after = sum(p.numel() for p in model.parameters()) / 1e6
+    compression_ratio = (num_params_before - num_params_after) / num_params_before * 100
+    
+    # print(f"Pruned model parameters: {num_params_after:.2f}M")
+    print("Validating parameter count after full pruning and reconfiguration...")
+    print(f"✅ Final Pruned Model Parameters: {num_params_after:.2f}M")
+
+    print(f"Compression ratio: {compression_ratio:.2f}%")
+
+    # Save the pruned model if save_path is provided
+    saved_path = None
+    if save_path is not None:
+        print(f"Saving pruned model to {save_path}...")
+        model.save_pretrained(save_path)
+        tokenizer.save_pretrained(save_path)
+        saved_path = save_path
+        print(f"Pruned model saved successfully to {save_path}")
+
 
 
 
