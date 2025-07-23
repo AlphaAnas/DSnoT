@@ -480,6 +480,7 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
 def prune_DSnoT(
     args, model, tokenizer, device=torch.device("cuda:0"), prune_n=0, prune_m=0, save_path=None
 ):
+    print("Starting DSNOT PRUNING....")
     use_cache = model.config.use_cache
     model.config.use_cache = False
 
