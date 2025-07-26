@@ -76,7 +76,7 @@ def prepare_calibration_input(args, model, dataloader, device):
         device=device,
     )
     inps.requires_grad = False
-    cache = {"i": 0, "attention_mask": None, "position_ids": None}
+    cache = {"i": 0, "attention_mask": None, "position_ids": None, "cache_position": None}
 
     class Catcher(nn.Module):
         def __init__(self, module):
@@ -86,8 +86,9 @@ def prepare_calibration_input(args, model, dataloader, device):
         def forward(self, inp, **kwargs):
             inps[cache["i"]] = inp
             cache["i"] += 1
-            cache["attention_mask"] = kwargs["attention_mask"]
-            cache["position_ids"] = kwargs["position_ids"]
+            cache["attention_mask"] = kwargs.get("attention_mask", None)
+            cache["position_ids"] = kwargs.get("position_ids", None)
+            cache["cache_position"] = kwargs.get("cache_position", None)
             raise ValueError
 
     layers[0] = Catcher(layers[0])
@@ -101,9 +102,10 @@ def prepare_calibration_input(args, model, dataloader, device):
     outs = torch.zeros_like(inps)
     attention_mask = cache["attention_mask"]
     position_ids = cache["position_ids"]
+    cache_position = cache["cache_position"]
     model.config.use_cache = use_cache
 
-    return inps, outs, attention_mask, position_ids
+    return inps, outs, attention_mask, position_ids, cache_position
 
 
 def return_reorder_indice(input_tensor):
@@ -206,7 +208,7 @@ def prune_wanda(
     )
     print("dataset loading complete")
     with torch.no_grad():
-        inps, outs, attention_mask, position_ids = prepare_calibration_input(
+        inps, outs, attention_mask, position_ids, cache_position = prepare_calibration_input(
             args, model, dataloader, device
         )
 
@@ -220,11 +222,12 @@ def prune_wanda(
             f"model.layers.{i}" in model.hf_device_map
         ):  ## handle the case for llama-30B and llama-65B, when the device map has multiple GPUs;
             dev = model.hf_device_map[f"model.layers.{i}"]
-            inps, outs, attention_mask, position_ids = (
+            inps, outs, attention_mask, position_ids, cache_position = (
                 inps.to(dev),
                 outs.to(dev),
-                attention_mask.to(dev),
-                position_ids.to(dev),
+                attention_mask.to(dev) if attention_mask is not None else None,
+                position_ids.to(dev) if position_ids is not None else None,
+                cache_position.to(dev) if cache_position is not None else None,
             )
 
         wrapped_layers = {}
@@ -242,10 +245,16 @@ def prune_wanda(
             handles.append(subset[name].register_forward_hook(add_batch(name)))
         for j in range(args.nsamples):
             with torch.no_grad():
+                layer_kwargs = {
+                    "attention_mask": attention_mask,
+                    "position_ids": position_ids,
+                }
+                if cache_position is not None:
+                    layer_kwargs["cache_position"] = cache_position
+                
                 outs[j] = layer(
                     inps[j].unsqueeze(0),
-                    attention_mask=attention_mask,
-                    position_ids=position_ids,
+                    **layer_kwargs
                 )[0]
         for h in handles:
             h.remove()
@@ -399,10 +408,14 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
         print("Running forward passes for calibration...")
         for j in range(args.nsamples):
             print(f"Layer {i}, Sample {j}")
+            layer_kwargs = {
+                "attention_mask": attention_mask,
+                "position_ids": position_ids,
+            }
+            # Note: sparsegpt uses older format, no cache_position needed here
             outs[j] = layer(
                 inps[j].unsqueeze(0),
-                attention_mask=attention_mask,
-                position_ids=position_ids,
+                **layer_kwargs
             )[0]
 
         print("Removing forward hooks.")
@@ -430,10 +443,14 @@ def prune_sparsegpt(args, model, tokenizer, dev, prune_n=0, prune_m=0, save_path
 
         print(f"Validating pruned layer {i} with forward pass...")
         for j in range(args.nsamples):
+            layer_kwargs = {
+                "attention_mask": attention_mask,
+                "position_ids": position_ids,
+            }
+            # Note: sparsegpt uses older format, no cache_position needed here
             outs[j] = layer(
                 inps[j].unsqueeze(0),
-                attention_mask=attention_mask,
-                position_ids=position_ids,
+                **layer_kwargs
             )[0]
 
         layers[i] = layer
@@ -495,7 +512,7 @@ def prune_DSnoT(
     )
     print("dataset loading complete")
     with torch.no_grad():
-        inps, outs, attention_mask, position_ids = prepare_calibration_input(
+        inps, outs, attention_mask, position_ids, cache_position = prepare_calibration_input(
             args, model, dataloader, device
         )
 
@@ -532,12 +549,21 @@ def prune_DSnoT(
         handles = []
         for name in wrapped_layers:
             handles.append(subset[name].register_forward_hook(add_batch(name)))
+
+        # the below code is used to get the calibration data for the DSnoT pruning
+        print("Running forward passes for calibration...")
         for j in range(args.nsamples):
             with torch.no_grad():
+                layer_kwargs = {
+                    "attention_mask": attention_mask,
+                    "position_ids": position_ids,
+                }
+                if cache_position is not None:
+                    layer_kwargs["cache_position"] = cache_position
+                
                 outs[j] = layer(
                     inps[j].unsqueeze(0),
-                    attention_mask=attention_mask,
-                    position_ids=position_ids,
+                    **layer_kwargs
                 )[0]
         for h in handles:
             h.remove()
@@ -925,10 +951,16 @@ def prune_DSnoT(
 
         for j in range(args.nsamples):
             with torch.no_grad():
+                layer_kwargs = {
+                    "attention_mask": attention_mask,
+                    "position_ids": position_ids,
+                }
+                if cache_position is not None:
+                    layer_kwargs["cache_position"] = cache_position
+                
                 outs[j] = layer(
                     inps[j].unsqueeze(0),
-                    attention_mask=attention_mask,
-                    position_ids=position_ids,
+                    **layer_kwargs
                 )[0]
         inps, outs = outs, inps
 
