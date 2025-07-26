@@ -193,10 +193,13 @@ def prune_magnitude(
 
 
 def prune_wanda(
-    args, model, tokenizer, device=torch.device("cuda:0"), prune_n=0, prune_m=0
+    args, model, tokenizer, device=torch.device("cuda:0"), prune_n=0, prune_m=0, save_path=None
 ):
     use_cache = model.config.use_cache
     model.config.use_cache = False
+
+    
+    num_params_before = sum(p.numel() for p in model.parameters()) / 1e6
 
     print("loading calibdation data")
     dataloader, _ = get_loaders(
@@ -304,6 +307,30 @@ def prune_wanda(
 
     model.config.use_cache = use_cache
     torch.cuda.empty_cache()
+
+
+     # ================ ADDED THIS CODE FOR SAVING THE PRUNED MODEL USING WANDA METHOD=================
+     # Clean up memory
+    model.eval()
+        # Calculate final parameters
+    num_params_after = sum(p.numel() for p in model.parameters()) / 1e6
+    compression_ratio = (num_params_before - num_params_after) / num_params_before * 100
+    
+    # print(f"Pruned model parameters: {num_params_after:.2f}M")
+    print("Validating parameter count after full pruning and reconfiguration...")
+    print(f"✅ Final Pruned Model Parameters: {num_params_after:.2f}M")
+
+    print(f"Compression ratio: {compression_ratio:.2f}%")
+
+    # Save the pruned model if save_path is provided
+    saved_path = None
+    if save_path is not None:
+        print(f"Saving pruned model to {save_path}...")
+        model.save_pretrained(save_path)
+        tokenizer.save_pretrained(save_path)
+        saved_path = save_path
+        print(f"Pruned model saved successfully to {save_path}")
+
 
 
 @torch.no_grad()
