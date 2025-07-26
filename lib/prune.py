@@ -506,13 +506,15 @@ def prune_DSnoT(
         subset = find_layers(layer)
 
         if (f"model.layers.{i}" in model.hf_device_map):  ## handle the case for llama-30B and llama-65B, when the device map has multiple GPUs;
-            dev = model.hf_device_map[f"model.layers.{i}"]
-            inps, outs, attention_mask, position_ids = (
-                inps.to(dev),
-                outs.to(dev),
-                attention_mask.to(dev),
-                position_ids.to(dev),
-            )
+            
+            print("This was the condition of LLama-30B and Llama-65B and is now removed...")
+            # dev = model.hf_device_map[f"model.layers.{i}"]
+            # inps, outs, attention_mask, position_ids = (
+            #     inps.to(dev),
+            #     outs.to(dev),
+            #     attention_mask.to(dev),
+            #     position_ids.to(dev),
+            # )
 
         wrapped_layers = {}
         for name in subset:
